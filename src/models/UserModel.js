@@ -24,6 +24,7 @@ const userSchema = mongoose.Schema(
       required: false,
       unique: false,
       default: ""
+
     },
     password: {
       type: String,
@@ -35,10 +36,15 @@ const userSchema = mongoose.Schema(
       required: false,
       unique: false,
       default: ""
+
     },
     codeConfirmMail: {
       type: String,
       required: false
+    },
+    gender:{
+      type: String,
+      default: "Others"
     },
     isAdmin: {
       type: Boolean,
