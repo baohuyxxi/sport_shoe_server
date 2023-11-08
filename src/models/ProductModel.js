@@ -26,9 +26,33 @@ const reviewsSchema = mongoose.Schema(
   }
 );
 
+const sizeSchema = mongoose.Schema(
+  {
+    size: {
+      type: Number,
+      required: true
+    },
+    countInStock: {
+      type: Number,
+      require: true,
+      default: 0
+    }
+  }
+);
+
+const colorSchema = mongoose.Schema(
+  {
+    color: {
+      type: String,
+      required: true
+    },
+    sizes: [sizeSchema]
+  }
+);
+
 const productSchema = mongoose.Schema(
   {
-    name: {
+    productName: {
       type: String,
       required: true,
       unique: true
@@ -42,7 +66,12 @@ const productSchema = mongoose.Schema(
       type: String,
       required: true
     },
-    reviews: [reviewsSchema],
+    reviews: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true
+      }
+    ],
     rating: {
       type: Number,
       required: true,
@@ -63,10 +92,19 @@ const productSchema = mongoose.Schema(
       required: true,
       default: 0
     },
-    category: {
+    categoryName: {
       type: String,
       required: true
-    }
+    },
+    brandName: {
+      type: String,
+      required: true
+    },
+    status: {
+      type: String,
+      required: true
+    },
+    colors: [colorSchema]
   },
   {
     collection: "products",
