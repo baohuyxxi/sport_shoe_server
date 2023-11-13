@@ -4,7 +4,7 @@ import { userController } from "~/controllers/userController";
 import fileImage from "~/utils/uploadCloudinary";
 
 const router = express.Router();
-// [POST] GET ALL USERS
+// [POST] LOGIN
 router.post("/login", userController.userAuth);
 
 // [POST] REGISTER
@@ -22,7 +22,8 @@ router.put(
 
 router.put(
   "/avatar",
-  authMiddleware.protect, fileImage.single("file"),
+  authMiddleware.protect,
+  fileImage.single("file"),
   userController.updateAvatar
 );
 
@@ -40,5 +41,7 @@ router.get(
   authMiddleware.admin,
   userController.getAllUsers
 );
+
+router.post("/refresh_token", userController.refreshToken);
 
 export const userRouter = router;
