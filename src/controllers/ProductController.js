@@ -183,7 +183,7 @@ const getSingleProduct = asyncHandler(async (req, res) => {
     const order = await Order.findOne({
       user: decodeToken.id,
       "orderItems.product": product.id
-    }).populate("reviews.reviewId");
+    });
     if (order) allowReview = true;
   }
 
