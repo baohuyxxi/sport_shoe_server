@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
 import Product from "~/models/productModel";
 import Category from "~/models/categoryModel";
+import Brand from "~/models/brandModel";
 import { verify } from "jsonwebtoken";
 import { env } from "~/config/environment";
 import Order from "~/models/orderModel";
@@ -11,7 +12,12 @@ import reviewModel from "~/models/reviewModel";
 // @access  Public
 
 const getAllProduct = asyncHandler(async (req, res) => {
-  const category = req.query.category ? { category: req.query.category } : {};
+  const categoryName = req.query.categoryName
+    ? { categoryName: req.query.categoryName }
+    : {};
+  const brandName = req.query.brandName
+    ? { brandName: req.query.brandName }
+    : {};
   const keyword = req.query.keyword
     ? {
         name: {
@@ -22,7 +28,8 @@ const getAllProduct = asyncHandler(async (req, res) => {
     : {};
   const products = await Product.find({
     ...keyword,
-    ...category,
+    ...categoryName,
+    ...brandName,
     status: "Active"
   });
   if (products) {
@@ -35,16 +42,30 @@ const getAllProduct = asyncHandler(async (req, res) => {
 const getAllProductByAdmin = asyncHandler(async (req, res) => {
   const pageSize = 8;
   const page = Number(req.query.pageNumber || 1);
+  const categoryName = req.query.categoryName
+    ? {
+        categoryName: req.query.categoryName
+      }
+    : {};
+
   const keyword = req.query.keyword
     ? {
-        name: {
+        productName: {
           $regex: req.query.keyword,
           $options: "i"
         }
       }
     : {};
-  const count = await Product.countDocuments({ ...keyword, status: "Active" });
-  const products = await Product.find({ ...keyword, status: "Active" })
+  const count = await Product.countDocuments({
+    ...keyword,
+    ...categoryName,
+    status: "Active"
+  });
+  const products = await Product.find({
+    ...keyword,
+    ...categoryName,
+    status: "Active"
+  })
     .limit(pageSize)
     .skip(pageSize * (page - 1))
     .sort({ _id: -1 });
@@ -59,7 +80,8 @@ const getAllProductByAdmin = asyncHandler(async (req, res) => {
 const deleteProductByAdmin = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
   if (product) {
-    await product.remove();
+    product.status = "Deleted";
+    await product.save();
     res.json({ message: "Product deleted" });
   } else {
     res.status(404);
@@ -77,14 +99,18 @@ const createProductByAdmin = asyncHandler(async (req, res) => {
     price,
     description,
     imageUrl,
-    category,
+    categoryName,
     brandName,
     typeProduct
   } = req.body;
-  const categoryFound = await Category.findById(category);
-
+  const categoryFound = await Category.findOne({ categoryName: categoryName });
   if (!categoryFound) {
     return res.status(400).json({ message: "Category Not Found" });
+  }
+
+  const brandFound = await Brand.findOne({ brandName: brandName });
+  if (!brandFound) {
+    return res.status(400).json({ message: "Brand Not Found" });
   }
 
   // ? Check Exist Product
@@ -94,14 +120,25 @@ const createProductByAdmin = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Product name already existed");
   } else {
+    const countInStock = typeProduct.reduce(
+      (totalQuantity, itemCurrent) => itemCurrent.quantity + totalQuantity,
+      0
+    );
     // Create New Value from Model
+
+    // var countInStock = 0;
+    // typeProduct.forEach((item) => {
+    //   countInStock += item.quantity;
+    // });
+
     const product = new Product({
       productName,
-      price,
-      categoryName: categoryFound.categoryName,
-      description,
       image: imageUrl,
-      brandName,
+      description,
+      price,
+      countInStock,
+      categoryName: categoryFound.categoryName,
+      brandName: brandFound.brandName,
       typeProduct,
       status: "Active"
     });
@@ -118,24 +155,40 @@ const createProductByAdmin = asyncHandler(async (req, res) => {
 });
 
 const updateProductByAdmin = asyncHandler(async (req, res) => {
-  const { productName, price, description, image, categoryId } = req.body;
-  const product = await Product.findById(req.params.id).populate("category");
+  const {
+    productName,
+    price,
+    description,
+    imageUrl,
+    categoryName,
+    brandName,
+    typeProduct
+  } = req.body;
 
+  const product = await Product.findById(req.params.id);
   if (product) {
-    // if (categoryId) {
-    let categoryFound = await Category.findOne({ name: req.body.category });
+    const categoryFound = await Category.findOne({
+      categoryName: categoryName
+    });
+    if (!categoryFound) {
+      return res.status(400).json({ message: "Category Not Found" });
+    }
+    const brandFound = await Brand.findOne({ brandName: brandName });
+    if (!brandFound) {
+      return res.status(400).json({ message: "Brand Not Found" });
+    }
     // * Update by any object
     product.productName = productName || product.productName;
     product.price = price || product.price;
     product.description = description || product.description;
-    product.image = image || product.image;
+    product.image = imageUrl || product.image;
     product.categoryName = categoryFound.categoryName || product.categoryName;
+    product.typeProduct = typeProduct || product.typeProduct;
     const updateProduct = await product.save();
     res.status(201).json(updateProduct);
-    // }
   } else {
     res.status(400);
-    throw new Error("Product Not Found");
+    throw new Error("Can not update product");
   }
 });
 
@@ -192,7 +245,7 @@ const handlerTypeProduct2 = (product) => {
         sizes.push(size);
       }
     });
-    type.push({color: itemColor, sizes: sizes});
+    type.push({ color: itemColor, sizes: sizes });
   });
 
   return type;
@@ -327,6 +380,20 @@ const filteredProducts = asyncHandler(async (req, res) => {
     });
 });
 
+const findProductByKeyword = asyncHandler(async (req, res) => {
+  const keyword = req.query.keyword;
+
+  const product = await Product.find({
+    $or: [
+      { productName: { $regex: keyword, $options: "i" } },
+      { brandName: { $regex: keyword, $options: "i" } },
+      { categoryName: { $regex: keyword, $options: "i" } },
+      { description: { $regex: keyword, $options: "i" } }
+    ]
+  });
+  res.status(200).json({ product });
+});
+
 const productListCategory = asyncHandler(async (req, res) => {
   Product.distinct("category", {}, (err, categories) => {
     if (err) {
@@ -347,5 +414,6 @@ export const productController = {
   updateProductByAdmin,
   getAllProductByAdmin,
   productListCategory,
-  filteredProducts
+  filteredProducts,
+  findProductByKeyword
 };

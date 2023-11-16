@@ -10,6 +10,7 @@ const generateAccessToken = (id) => {
 const generateRefreshToken = (id) => {
   return jwt.sign({ id }, env.JWT_SECRET, {
     expiresIn: "10d"
+
   });
 };
 
